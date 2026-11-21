@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RepliPlate — offline</title>
+<style>
+  :root{--bg:#EEF1EA;--ink:#14231C;--ink2:#4C5D53;--basil:#1E5B43}
+  @media (prefers-color-scheme:dark){:root{--bg:#0E1713;--ink:#E8EFE9;--ink2:#A2B3A8;--basil:#2F7A5A}}
+  body{margin:0;min-height:100vh;display:grid;place-items:center;background:var(--bg);color:var(--ink);font-family:system-ui,sans-serif;padding:24px;text-align:center}
+  img{width:72px;height:72px;border-radius:18px;margin:0 auto 16px}
+  h1{font-size:1.6rem;margin:0 0 8px} p{color:var(--ink2);max-width:34ch;margin:0 auto 20px}
+  button{border:0;border-radius:14px;background:var(--basil);color:#fff;font:inherit;font-weight:700;padding:14px 22px}
+</style></head>
+<body><main>
+  <img src="assets/icons/icon-192.png" alt="">
+  <h1>You're offline</h1>
+  <p>This page hasn't been saved on your device yet. Your clones, plans, and grocery list open once the app has loaded here once.</p>
+  <button onclick="location.href='./'">Try again</button>
+</main></body></html>

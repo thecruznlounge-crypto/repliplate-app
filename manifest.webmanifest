@@ -1,0 +1,54 @@
+{
+  "id": "/",
+  "name": "RepliPlate — Restaurant favorites at home",
+  "short_name": "RepliPlate",
+  "description": "Clone restaurant favorites at home, see what you save, plan your week with AI, and share plans and grocery lists.",
+  "lang": "en-US",
+  "dir": "ltr",
+  "start_url": "./?source=pwa",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone"],
+  "orientation": "portrait",
+  "background_color": "#EEF1EA",
+  "theme_color": "#EEF1EA",
+  "categories": ["food", "lifestyle", "health"],
+  "icons": [
+    { "src": "assets/icons/icon-48.png", "sizes": "48x48", "type": "image/png", "purpose": "any" },
+    { "src": "assets/icons/icon-72.png", "sizes": "72x72", "type": "image/png", "purpose": "any" },
+    { "src": "assets/icons/icon-96.png", "sizes": "96x96", "type": "image/png", "purpose": "any" },
+    { "src": "assets/icons/icon-128.png", "sizes": "128x128", "type": "image/png", "purpose": "any" },
+    { "src": "assets/icons/icon-144.png", "sizes": "144x144", "type": "image/png", "purpose": "any" },
+    { "src": "assets/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "assets/icons/icon-256.png", "sizes": "256x256", "type": "image/png", "purpose": "any" },
+    { "src": "assets/icons/icon-384.png", "sizes": "384x384", "type": "image/png", "purpose": "any" },
+    { "src": "assets/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "assets/icons/maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "assets/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "assets/icons/monochrome-512.png", "sizes": "512x512", "type": "image/png", "purpose": "monochrome" }
+  ],
+  "screenshots": [
+    { "src": "assets/store/screen-1-discover.png", "sizes": "1080x1920", "type": "image/png", "form_factor": "narrow", "label": "Find a restaurant favorite and see what you keep" },
+    { "src": "assets/store/screen-2-detail.png", "sizes": "1080x1920", "type": "image/png", "form_factor": "narrow", "label": "Step-by-step copycat recipe with costs" },
+    { "src": "assets/store/screen-3-plan.png", "sizes": "1080x1920", "type": "image/png", "form_factor": "narrow", "label": "AI plans your week around budget and diet" },
+    { "src": "assets/store/screen-4-list.png", "sizes": "1080x1920", "type": "image/png", "form_factor": "narrow", "label": "One combined grocery list" },
+    { "src": "assets/store/screen-wide.png", "sizes": "1920x1080", "type": "image/png", "form_factor": "wide", "label": "RepliPlate on desktop" }
+  ],
+  "shortcuts": [
+    { "name": "Plan my week", "short_name": "Plan", "url": "./?go=plan", "icons": [{ "src": "assets/icons/icon-96.png", "sizes": "96x96" }] },
+    { "name": "Grocery list", "short_name": "List", "url": "./?go=list", "icons": [{ "src": "assets/icons/icon-96.png", "sizes": "96x96" }] },
+    { "name": "Saved clones", "short_name": "Saved", "url": "./?go=saved", "icons": [{ "src": "assets/icons/icon-96.png", "sizes": "96x96" }] }
+  ],
+  "share_target": {
+    "action": "./",
+    "method": "GET",
+    "enctype": "application/x-www-form-urlencoded",
+    "params": { "title": "title", "text": "text", "url": "url" }
+  },
+  "launch_handler": { "client_mode": ["navigate-existing", "auto"] },
+  "handle_links": "preferred",
+  "prefer_related_applications": false,
+  "related_applications": [
+    { "platform": "play", "url": "https://play.google.com/store/apps/details?id=app.repliplate.twa", "id": "app.repliplate.twa" }
+  ]
+}
