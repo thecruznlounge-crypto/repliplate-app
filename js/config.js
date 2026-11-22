@@ -9,4 +9,6 @@ export const CONFIG = {
   AI_TIMEOUT_MS: 60000,
   // WAYOF (thewayof.health): "Log in WAYOF" opens the meal there with its calories and protein. Set '' to hide the button.
   WAYOF_URL: 'https://thewayof.health',
+  // Instacart pages for lists, plans and recipes (the Worker's /api/shop holds the Instacart key). Set '' to hide the buttons.
+  SHOP_API: '/api/shop',
 };

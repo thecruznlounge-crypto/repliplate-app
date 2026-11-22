@@ -2,6 +2,20 @@
 
 Restaurant favorites made at home: copycat clones, AI meal planning, a combined grocery list, and sharing. It's plain HTML, CSS and JS modules with no build step, so you can deploy it through cPanel File Manager.
 
+## What's new in 2.1: shop to your budget, reminders
+- **Budget-true plans.** The on-device planner (shared with WAYOF as `js/shopkit.js`) plans to your grocery budget. Shorter plans get their share of the weekly slider. It counts whole packages and reuses ingredients across meals, and keeps a 12% cushion. Every plan, AI or device-built, shows **Grocery cart (est.) $X of $Y**, plus money-saving swaps.
+- **Instacart:**
+  - **Instacart** on a plan sends the week's groceries.
+  - **Get ingredients** on a clone sends that recipe for your household.
+  - **Instacart** on the grocery list sends what's left to buy.
+  - You choose the store and pay on Instacart. Without a key, the list is copied instead.
+- **Log receipt** (grocery list) teaches the price estimates for each store.
+- **Reminders** (Saved → Settings): tonight's dinner at 4 PM, a Sunday meal-prep afternoon and shopping day. They arrive while the app is closed when it's installed on Chrome or Edge, even offline (`js/localnotify.js` + the service worker).
+- **Setup:** in Cloudflare → Workers → **repliplate-app** → Settings → Variables and Secrets:
+  - Add the secret `INSTACART_API_KEY`. Get it from Instacart's Developer Platform: https://www.instacart.com/company/business/developers
+  - Add the variable `INSTACART_ENV`: `development` for a development key, `production` once Instacart approves the app.
+  - The endpoint is `/api/shop` (code in `worker/shop.js`), and WAYOF uses it too.
+
 ## What's new in 2.0
 - **New design.** A diner palette (basil, mustard, ketchup) built around a kitchen-ticket motif that shows restaurant price vs. your price. Light and dark mode, and a side rail on desktop.
 - **One-tap install.** An Install button appears in the header and on the home screen as soon as the browser allows it. iPhone users get a 3-step Add to Home Screen guide instead, since iOS has no install API.
@@ -26,6 +40,9 @@ Restaurant favorites made at home: copycat clones, AI meal planning, a combined 
 | `js/data.js` | Built-in clone library (13 dishes) |
 | `js/store.js` | On-device storage |
 | `js/planner.js` | Offline planner and plan totals |
+| `js/shopkit.js` | Budget grocery planner + Instacart helpers (shared with WAYOF) |
+| `js/localnotify.js` | Reminders while the app is closed (shared with WAYOF) |
+| `worker/shop.js` | Instacart endpoint `/api/shop` (Cloudflare Worker) |
 | `js/ai.js` | AI client, with response checks and offline fallback |
 | `js/share.js` | Share links, share sheet, and ticket images |
 | `js/install.js` | One-tap install and the iOS guide |

@@ -1,8 +1,11 @@
 /* RepliPlate on Cloudflare Workers.
    Static app files are served from this repo; /api/ai.php is the old PHP AI proxy rewritten here,
    same URL and same replies, so the app and WAYOF need no changes.
-   Secret: ANTHROPIC_API_KEY.  Optional vars: MODEL, REQUESTS_PER_HOUR, ALLOWED_ORIGINS (comma list). */
+   /api/shop turns grocery lists and recipes into Instacart pages (RepliPlate and WAYOF).
+   Secrets: ANTHROPIC_API_KEY, INSTACART_API_KEY.  Optional vars: MODEL, REQUESTS_PER_HOUR, ALLOWED_ORIGINS (comma list),
+   INSTACART_ENV ("development" until Instacart approves your app, then "production"), SHOP_REQUESTS_PER_HOUR. */
 import { CLONE_SYSTEM, PLAN_SYSTEM } from './prompts.js';
+import { shop } from './shop.js';
 
 const ORIGINS = ['https://repliplate.app', 'https://www.repliplate.app', 'https://thewayof.health', 'https://www.thewayof.health', 'https://wayof.health', 'https://www.wayof.health'];
 const NO_STORE = /^\/(sw\.js|manifest\.webmanifest|index\.html)?$/;
@@ -17,6 +20,7 @@ export default {
     const url = new URL(req.url), p = url.pathname;
     if (url.hostname.startsWith('www.')) return Response.redirect(`https://${url.hostname.slice(4)}${p}${url.search}`, 301);
     if (p === '/api/ai.php') return ai(req, env);
+    if (p === '/api/shop' || p === '/api/shop.php') return shop(req, env, { allowed: allowedOrigins(env), underLimit });
     if (p.startsWith('/api/') || p.startsWith('/worker/') || /^\/(wrangler\.jsonc|\.assetsignore|README\.md)$/.test(p)) return new Response('Not found', { status: 404 });
     if (p === '/.well-known/assetlinks.json')
       return new Response(JSON.stringify(ASSETLINKS, null, 2), { headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } });
@@ -33,9 +37,11 @@ export default {
   },
 };
 
+const allowedOrigins = env => ORIGINS.concat(String(env.ALLOWED_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean));
+
 /* ---------------- AI proxy (was api/ai.php) ---------------- */
 async function ai(req, env) {
-  const allowed = ORIGINS.concat(String(env.ALLOWED_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean));
+  const allowed = allowedOrigins(env);
   const origin = req.headers.get('Origin') || '';
   const head = { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' };
   const fail = (code, msg) => new Response(JSON.stringify({ error: msg }), { status: code, headers: head });
@@ -111,10 +117,10 @@ async function ai(req, env) {
 }
 
 /* Per-visitor hourly cap, kept in Cloudflare's edge cache (no database needed). */
-async function underLimit(req, perHour) {
+async function underLimit(req, perHour, bucket = 'ai') {
   const ip = req.headers.get('CF-Connecting-IP') || '0';
   const hour = new Date().toISOString().slice(0, 13);
-  const d = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(ip + hour));
+  const d = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(bucket + ip + hour));
   const key = 'https://rl.repliplate.internal/' + [...new Uint8Array(d)].map(b => b.toString(16).padStart(2, '0')).join('');
   const cache = caches.default;
   const hit = await cache.match(key);

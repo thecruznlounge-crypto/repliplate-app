@@ -10,6 +10,7 @@ const defaults = () => ({
   list: {},             // grocery items keyed by name
   prefs: { days: 7, slots: 'dinner', household: 2, diet: 'any', budget: 90, goal: 'save', notes: '' },
   installDismissedAt: 0,
+  shop: { store: '' },  // store name for price learning (ShopKit)
 });
 
 let state = load();

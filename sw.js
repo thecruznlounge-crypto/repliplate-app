@@ -1,12 +1,13 @@
-// RepliPlate service worker — offline-first app shell.
-const VERSION = 'rp-2.0.1';
+// RepliPlate service worker — offline-first app shell + closed-app reminders (LocalNotify).
+importScripts('./js/localnotify.js');
+const VERSION = 'rp-2.1.0';
 const SHELL = `${VERSION}-shell`;
 const RUNTIME = `${VERSION}-runtime`;
 const FONTS = 'rp-fonts'; // kept across versions
 
 const PRECACHE = [
   './', './index.html', './offline.html', './privacy.html', './styles.css', './manifest.webmanifest',
-  './js/app.js', './js/data.js', './js/store.js', './js/planner.js', './js/ai.js', './js/share.js', './js/install.js', './js/config.js',
+  './js/app.js', './js/data.js', './js/store.js', './js/planner.js', './js/shopkit.js', './js/localnotify.js', './js/ai.js', './js/share.js', './js/install.js', './js/config.js',
   './assets/logo.svg', './assets/icons/icon-48.png', './assets/icons/icon-96.png', './assets/icons/icon-192.png',
   './assets/icons/icon-512.png', './assets/icons/maskable-192.png', './assets/icons/maskable-512.png', './assets/icons/apple-touch-icon.png',
 ];
@@ -84,3 +85,14 @@ function fetchWithTimeout(req, ms) {
     fetch(req).then(r => { clearTimeout(t); resolve(r); }, err => { clearTimeout(t); reject(err); });
   });
 }
+
+// Reminder taps open (or focus) the app on the right screen
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  const url = new URL((e.notification.data && e.notification.data.url) || './', self.location.href).href;
+  e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
+    const c = list.find(w => w.url.startsWith(self.location.origin));
+    if (c) { c.navigate(url).catch(() => {}); return c.focus(); }
+    return self.clients.openWindow(url);
+  }));
+});

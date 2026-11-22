@@ -2,6 +2,22 @@
 // and as the scorer the AI plan is checked against.
 import { MEALS } from './data.js';
 import { get, getMeal, uid } from './store.js';
+import './shopkit.js'; // shared with WAYOF: package-level grocery costing + budget planner (sets globalThis.SHOPKIT)
+const K = globalThis.SHOPKIT;
+
+// RepliPlate meal → ShopKit meal
+export const toShopMeal = m => m && ({ id: m.id, name: m.item, kcal: m.homeCal, protein: m.protein, minutes: m.minutes, restPrice: m.restaurantPrice, score: m.score,
+  steps: m.steps || [], ingredients: (m.ingredients || []).map(i => ({ name: i.name, qty: i.qty, cost: i.cost, aisle: i.aisle })) });
+// The weekly budget slider covers 7 days; shorter plans get their share of it.
+export const budgetFor = prefs => Math.round((prefs.budget || 90) * (prefs.days || 7) / 7 * 100) / 100;
+
+/** Grocery-cart estimate for any plan (device or AI): whole packages, shared ingredients counted once. */
+export function planShop(plan) {
+  const prefs = plan.prefs || {}, meals = [];
+  plan.days.forEach((d, di) => d.meals.forEach(s => meals.push({ day: d.day, d: di, slot: s.slot, id: s.id })));
+  const budget = budgetFor(prefs);
+  return K.recost({ meals, household: prefs.household || 1, budget, target: Math.round(budget * 0.88 * 100) / 100, store: (get().shop || {}).store || '' }, id => toShopMeal(getMeal(id)), { basics: true });
+}
 
 export const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -44,24 +60,12 @@ export function buildLocalPlan(prefs) {
     .map(x => ({ ...x, s: score(x.m, prefs.goal, prefs.notes || '') }))
     .sort((a, b) => b.s - a.s);
 
-  const total = prefs.days * slots.length;
-  const perMealBudget = prefs.budget / Math.max(1, total) / prefs.household;
+  // ShopKit plans to the budget (minus a cushion), buying whole packages and reusing ingredients across meals
+  const swapOf = new Map(candidates.map(c => [c.m.id, c.d.swap]));
+  const sk = K.plan({ budget: budgetFor(prefs), days: prefs.days, slots, household: prefs.household, goal: prefs.goal,
+    pool: candidates.map(c => Object.assign(toShopMeal(c.m), { weight: 0.3 * (c.s - c.m.score / 100) })), basics: true, store: (get().shop || {}).store || '' });
   const days = [];
-  const used = new Map();
-  let i = 0;
-  for (let d = 0; d < prefs.days; d++) {
-    const meals = [];
-    for (const slot of slots) {
-      // prefer unused, in-budget meals; allow repeats only once the pool is exhausted
-      const pick = candidates.find(c => !used.has(c.m.id) && c.m.homePrice <= perMealBudget * 1.25)
-        || candidates.find(c => !used.has(c.m.id))
-        || candidates[i++ % Math.max(1, candidates.length)];
-      if (!pick) continue;
-      used.set(pick.m.id, (used.get(pick.m.id) || 0) + 1);
-      meals.push({ slot, id: pick.m.id, swap: pick.d.swap });
-    }
-    days.push({ day: DAY_NAMES[d], meals });
-  }
+  for (let d = 0; d < prefs.days; d++) days.push({ day: DAY_NAMES[d], meals: sk.meals.filter(x => x.d === d && x.id).map(x => ({ slot: x.slot, id: x.id, swap: swapOf.get(x.id) || null })) });
   return {
     id: uid('plan'), source: 'device', created: Date.now(), prefs: { ...prefs },
     name: `${prefs.days}-day ${prefs.goal === 'save' ? 'budget' : prefs.goal === 'lighter' ? 'lighter' : prefs.goal === 'protein' ? 'high-protein' : 'quick'} plan`,

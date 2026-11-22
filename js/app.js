@@ -1,12 +1,15 @@
 import { MEALS, CATEGORIES, AISLES } from './data.js';
 import * as S from './store.js';
 import { planWeek, cloneFromText, cloneFromPhoto, OfflineError, normalizeMeal } from './ai.js';
-import { planTotals, rerollSlot } from './planner.js';
+import { planTotals, rerollSlot, planShop, toShopMeal } from './planner.js';
+const K = globalThis.SHOPKIT; // loaded by planner.js
+import './localnotify.js';     // closed-app reminders (shared with WAYOF)
+const LN = globalThis.LocalNotify;
 import { mealLink, planLink, shareOut, planText, listText, ticketCard, decode, wayofLink } from './share.js';
 import { install, installState, onInstallChange, shouldNudge, snooze, isIOS } from './install.js';
 import { CONFIG } from './config.js';
 
-const VERSION = '2.0.1';
+const VERSION = '2.1.0';
 const $ = (s, el = document) => el.querySelector(s);
 const view = $('#view');
 const money = n => '$' + (Math.round(n * 100) / 100).toFixed(2);
@@ -146,6 +149,7 @@ function detail(id) {
         <button class="btn ghost small" type="button" data-save aria-pressed="${saved}">${saved ? I.saved : I.save}${saved ? 'Saved' : 'Save'}</button>
         <button class="btn ghost small" type="button" data-share>${I.share}Share</button>
         <button class="btn small" type="button" data-addlist>${I.cart}List</button>
+        ${CONFIG.SHOP_API ? `<button class="btn ghost small" type="button" data-shopmeal title="Send these ingredients to Instacart">${I.cart}Get ingredients</button>` : ''}
         ${CONFIG.WAYOF_URL ? `<button class="btn ghost small" type="button" data-wayof title="Log this meal's calories and protein in WAYOF">${I.heart}Log in WAYOF</button>` : ''}
       </div>
     </section>
@@ -196,7 +200,7 @@ function planView() {
 }
 
 function planResult(plan) {
-  const t = planTotals(plan);
+  const t = planTotals(plan), cart = planShop(plan);
   const isSaved = S.get().plans.some(p => p.id === plan.id);
   return `
     ${plan.shared ? `<div class="install-card" style="grid-template-columns:1fr"><div><b>Someone shared this plan with you</b><p>Save it to keep it on this device, or add the week to your grocery list.</p></div></div>` : ''}
@@ -207,6 +211,7 @@ function planResult(plan) {
       <hr>
       <div class="t-line strike"><span>Eating out</span><b>${money(t.out)}</b></div>
       <div class="t-line"><span>Cooking at home</span><b>${money(t.home)}</b></div>
+      <div class="t-line"><span>Grocery cart (est.)</span><b>${money(cart.total)} of ${money(cart.budget)}</b></div>
       <div class="t-line"><span>Avg per plate</span><b>${t.avgCal} cal</b></div>
       <hr>
       <div class="t-total"><span>You keep</span><b>${money(t.keep)}</b></div>
@@ -215,7 +220,9 @@ function planResult(plan) {
       <button class="btn ghost small" type="button" data-saveplan ${isSaved ? 'disabled' : ''}>${isSaved ? I.saved + 'Saved' : I.save + 'Save'}</button>
       <button class="btn ghost small" type="button" data-shareplan>${I.share}Share</button>
       <button class="btn small" type="button" data-planlist>${I.cart}List</button>
+      ${CONFIG.SHOP_API ? `<button class="btn ghost small" type="button" data-shopplan>${I.cart}Instacart</button>` : ''}
     </div>
+    <p class="muted" style="margin:0;font-size:.9rem">${cart.over ? `This plan's groceries run about ${money(cart.total - cart.budget)} over your budget. Swap a meal or try the tips below.` : `Groceries come to about ${money(cart.total)}, buying whole packages and using shared ingredients across meals. That leaves ${money(cart.budget - cart.total)} for real store prices.`}${cart.factor !== 1 ? ` Prices adjusted ${cart.factor > 1 ? '+' : ''}${Math.round((cart.factor - 1) * 100)}% from your receipts.` : ''}</p>
     <div class="days">${plan.days.map((d, di) => `<div class="day"><span class="dname">${d.day}</span><div class="slots">${d.meals.map((s, si) => {
       const m = S.getMeal(s.id); if (!m) return '';
       return `<div class="slot"><span class="plate" aria-hidden="true">${esc(m.emoji)}</span>
@@ -224,6 +231,7 @@ function planResult(plan) {
         ${s.note ? `<small style="display:block">${esc(s.note)}</small>` : ''}</a>
         <button class="icon-btn" type="button" data-reroll="${di}:${si}" aria-label="Swap ${esc(m.item)} for another meal">${I.dice}</button></div>`;
     }).join('')}</div></div>`).join('')}</div>
+    ${cart.swaps.length ? `<div class="swap"><b>${cart.over ? 'Get under budget' : 'Save even more'}</b>${cart.swaps.map(s => `<p>${esc(s.note)} · about ${money(s.save)} less</p>`).join('')}</div>` : ''}
     ${plan.tips?.length ? `<div class="swap"><b>Cook-ahead tips</b>${plan.tips.map(t => `<p>${esc(t)}</p>`).join('')}</div>` : ''}
     ${plan.source === 'ai' ? `<div class="ai-note"><span>Made by AI. Check allergens before cooking.</span><button class="link" type="button" data-reportplan>Report this result</button></div>` : ''}`;
 }
@@ -243,7 +251,7 @@ function listView() {
     <div class="sec-head"><h1 class="display">Grocery list</h1></div>
     <div class="row between"><span class="muted">${done} of ${items.length} in the cart · about ${money(total)}</span></div>
     <div class="progress" aria-hidden="true"><i style="width:${(done / items.length) * 100}%"></i></div>
-    <div class="row"><button class="btn ghost small" type="button" data-sharelist>${I.share}Share</button>
+    <div class="row" style="flex-wrap:wrap">${CONFIG.SHOP_API ? `<button class="btn small" type="button" data-shoplist>${I.cart}Instacart</button>` : ''}<button class="btn ghost small" type="button" data-receipt>Log receipt</button><button class="btn ghost small" type="button" data-sharelist>${I.share}Share</button>
       <button class="btn ghost small" type="button" data-clearchecked ${done ? '' : 'disabled'}>Remove done</button>
       <button class="btn ghost small" type="button" data-clearall aria-label="Clear list">${I.trash}</button></div>
   </section>
@@ -277,6 +285,7 @@ function savedView() {
       <div class="settings">
         <div><span>Appearance</span>${seg('theme', theme, [['system', 'System'], ['light', 'Light'], ['dark', 'Dark']])}</div>
         <div><span>App</span>${inst === 'installed' ? '<span class="muted">Installed</span>' : `<button class="btn small" type="button" data-install>${inst === 'ios' ? 'How to install' : 'Install app'}</button>`}</div>
+        <div><span>Reminders</span>${remindersControl()}</div>
         <div><span>Your data</span><span class="muted" style="text-align:right">Stored on this device only</span></div>
       </div>
       <p class="footer-note">RepliPlate ${VERSION} · <a href="privacy.html">Privacy</a> · <a href="mailto:${CONFIG.SUPPORT_EMAIL}">Contact</a><br>Not affiliated with any restaurant named. Prices and calories are estimates.</p>
@@ -338,6 +347,22 @@ async function runAIClone(fn, label) {
   busy(label);
   try { const m = await fn(); closeSheet(); go('#/meal/' + m.id); toast('Clone ready'); }
   catch (e) { closeSheet(); toast(e instanceof OfflineError ? "Can't reach the AI right now. Check your connection and try again." : e.message); }
+}
+
+async function instacart(payload) {
+  toast('Opening Instacart…');
+  const r = await K.openInstacart(CONFIG.SHOP_API, payload);
+  if (!r.ok) { try { await navigator.clipboard.writeText(r.text); toast(`${r.error}. The list was copied instead.`); } catch (e) { toast(r.error); } }
+}
+function receiptSheet() {
+  const total = Object.values(S.get().list).reduce((a, i) => a + i.cost, 0), store = (S.get().shop || {}).store || '';
+  sheet(`<h2>Log your receipt</h2><p class="muted">Type what you actually paid. RepliPlate compares it with its estimate and adjusts prices for that store, so your next plan is closer.</p>
+    <form id="receiptForm" class="stack" style="display:grid;gap:12px">
+      <label class="field"><span>Store</span><input id="rcStore" list="rcStores" maxlength="40" value="${esc(store)}" placeholder="Publix, Aldi, Walmart…"><datalist id="rcStores">${['Publix', 'Aldi', 'Walmart', 'Target', 'Costco', "Sedano's", 'Winn-Dixie', 'Whole Foods'].map(s => `<option value="${esc(s)}">`).join('')}</datalist></label>
+      <label class="field"><span>RepliPlate estimate</span><input id="rcEst" type="number" step="any" min="1" value="${total ? total.toFixed(2) : ''}"></label>
+      <label class="field"><span>I paid</span><input id="rcAct" type="number" step="any" min="1" required inputmode="decimal" placeholder="0.00"></label>
+      <button class="btn mustard block" type="submit">Save and update prices</button></form>
+    ${K.state.receipts.length ? `<p class="muted" style="margin-top:12px">Last: ${K.state.receipts.slice(0, 3).map(r => `${esc(r.store || 'any store')} est ${money(r.estimate)} → ${money(r.actual)}`).join(' · ')}</p>` : ''}`);
 }
 
 async function buildPlan() {
@@ -422,6 +447,21 @@ document.addEventListener('click', async e => {
   if (d.shareplanid) { const p = S.get().plans.find(x => x.id === d.shareplanid); return shareResult(await shareOut({ title: p.name, text: planText(p), url: await planLink(p) })); }
   if (d.delplan) { const p = S.get().plans.find(x => x.id === d.delplan); S.deletePlan(d.delplan); rerender(); return toast('Plan deleted', { label: 'Undo', run: () => { S.savePlan(p); rerender(); } }); }
 
+  // Instacart (shared ShopKit; falls back to copying the list)
+  if ('shopplan' in d && plan) { const c = planShop(plan); return instacart(K.listPayload(`${plan.name} · ~${money(c.total)}`, c.items, { linkback: location.origin + '/#/plan', instructions: `Budget ${money(c.budget)} · estimated ${money(c.total)}` })); }
+  if ('shoplist' in d) {
+    const items = Object.values(S.get().list).filter(i => !i.checked).map(i => { const m = K.match(i.name); return { name: i.name, search: m ? m.search : i.name }; });
+    if (!items.length) return toast('Everything is checked off');
+    return instacart(K.listPayload('RepliPlate grocery list', items, { linkback: location.origin + '/#/list' }));
+  }
+  if ('shopmeal' in d && meal) { const m = meal; return instacart(K.recipePayload(toShopMeal(m), { servings: S.get().prefs.household || 1, author: m.restaurant ? `${m.restaurant}-style copycat` : 'RepliPlate', linkback: location.origin + '/#/meal/' + m.id })); }
+  if ('receipt' in d) return receiptSheet();
+  if (d.remind) {
+    const on = d.remind === 'on'; S.update(s => { s.shop = { ...(s.shop || {}), remind: on }; });
+    if (on && LN) { scheduleReminders(); lnStatus = await LN.enable('repliplate'); toast(lnStatus.registered ? "Reminders on: tonight's dinner, meal prep and shopping day" : lnStatus.granted ? 'Reminders on while RepliPlate is open. Install the app to get them when it is closed.' : 'Allow notifications to get reminders'); }
+    return rerender();
+  }
+
   // list
   if ('sharelist' in d) return shareResult(await shareOut({ title: 'Grocery list', text: listText() }));
   if ('clearchecked' in d) { S.clearChecked(); return rerender(); }
@@ -430,6 +470,7 @@ document.addEventListener('click', async e => {
 
 document.addEventListener('change', e => {
   if (e.target.matches('[data-item]')) { S.toggleItem(e.target.dataset.item); rerender(); }
+  if (e.target.id === 'shopDay') S.update(s => { s.shop = { ...(s.shop || {}), day: +e.target.value }; });
   if (e.target.id === 'photoInput' && e.target.files[0]) { const f = e.target.files[0]; e.target.value = ''; runAIClone(() => cloneFromPhoto(f), 'Reading your photo…'); }
 });
 document.addEventListener('input', e => {
@@ -441,6 +482,12 @@ document.addEventListener('submit', e => {
   e.preventDefault();
   if (e.target.id === 'planForm') buildPlan();
   if (e.target.id === 'searchForm') $('#q').blur();
+  if (e.target.id === 'receiptForm') {
+    const est = +$('#rcEst').value, act = +$('#rcAct').value, store = $('#rcStore').value.trim();
+    if (!(est > 0 && act > 0)) return toast('Enter both amounts');
+    const f = K.logReceipt(est, act, store); S.update(s => { s.shop = { ...(s.shop || {}), store }; }); closeSheet(); rerender();
+    toast(f ? `Saved. ${store || 'Your store'} runs ${Math.abs(Math.round((f - 1) * 100))}% ${f >= 1 ? 'above' : 'below'} the estimates, and plans now use that.` : 'Saved');
+  }
 });
 
 // ---------- install button in the top bar ----------
@@ -482,5 +529,44 @@ if ('serviceWorker' in navigator) {
 navigator.storage?.persist?.().catch(() => {});
 
 S.onChange(badge);
+
+// ---------- reminders while the app is closed (LocalNotify: background wake-ups, no server) ----------
+const WD = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+const atH = (d, h, m = 0) => { const x = new Date(d); x.setHours(h, m, 0, 0); return +x; };
+function upcomingReminders() {
+  const st = S.get(), sh = st.shop || {}, out = [], now = Date.now();
+  if (!sh.remind) return out;
+  const plan = st.draftPlan || st.plans[0];
+  if (plan) {
+    const start = new Date(plan.created || now); start.setHours(0, 0, 0, 0);
+    plan.days.forEach(d => {
+      const day = new Date(start); while (day.getDay() !== WD[d.day]) day.setDate(day.getDate() + 1);
+      const dinner = d.meals.find(s => s.slot === 'dinner') || d.meals[0], m = dinner && S.getMeal(dinner.id);
+      if (m) out.push({ id: `rp-din-${day.toDateString()}`, at: atH(day, 16), until: atH(day, 20), url: `./#/meal/${m.id}`,
+        title: `Tonight: ${m.item}`, body: `${m.restaurant}-style, about ${m.minutes} min. Keep ${money(m.restaurantPrice - m.homePrice)} by making it at home.` });
+    });
+    const sun = new Date(); while (sun.getDay() !== 0) sun.setDate(sun.getDate() + 1);
+    out.push({ id: `rp-prep-${sun.toDateString()}`, at: atH(sun, 15), until: atH(sun, 19), url: './#/plan', title: 'Meal-prep afternoon', body: 'Cook the rice and proteins for the week now and weeknight dinners take 10 minutes.' });
+  }
+  const left = Object.values(st.list).filter(i => !i.checked).length;
+  if (left) { const d = new Date(); while (d.getDay() !== (sh.day ?? 6)) d.setDate(d.getDate() + 1);
+    out.push({ id: `rp-shop-${d.toDateString()}`, at: atH(d, 10), until: atH(d, 20), url: './#/list', title: 'Shopping day', body: `${left} items on your grocery list. Tap to send it to Instacart.` }); }
+  return out.filter(i => i.until > now);
+}
+let remT = 0;
+const scheduleReminders = () => { if (!LN) return; clearTimeout(remT); remT = setTimeout(() => LN.schedule(upcomingReminders(), { app: 'repliplate', quietStart: 21, quietEnd: 8, max: 3, icon: 'assets/icons/icon-192.png' }), 800); };
+S.onChange(scheduleReminders); scheduleReminders();
+let lnStatus = null;
+function remindersControl() {
+  const on = (S.get().shop || {}).remind;
+  if (!lnStatus && LN) LN.status().then(s => { lnStatus = s; if (view.dataset.route === 'saved') rerender(); });
+  const s = lnStatus || {};
+  const note = !on ? '' : !s.notifications ? 'Not supported in this browser' : !s.granted ? 'Allow notifications to get them' : s.registered ? 'Arrive even when the app is closed' : s.background ? (s.installed ? 'Tap Turn on again to allow background' : 'Install the app to get them while closed') : 'Only while the app is open here';
+  return `<span style="display:grid;gap:6px;justify-items:end">${on
+    ? `<label class="muted" style="font-size:.9rem">Shop on <select id="shopDay">${['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d, i) => `<option value="${i}" ${((S.get().shop || {}).day ?? 6) === i ? 'selected' : ''}>${d}</option>`).join('')}</select></label>
+       <button class="btn ghost small" type="button" data-remind="${s.granted && s.background && s.installed && !s.registered ? 'on' : 'off'}">${s.granted && s.background && s.installed && !s.registered ? 'Turn on again' : 'Turn off'}</button>`
+    : `<button class="btn small" type="button" data-remind="on">Turn on</button>`}
+    ${note ? `<small class="muted" style="text-align:right">${note}</small>` : ''}</span>`;
+}
 addEventListener('hashchange', () => { route(); scrollTo(0, 0); });
 route();
