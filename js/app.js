@@ -149,7 +149,7 @@ function detail(id) {
         <button class="btn ghost small" type="button" data-save aria-pressed="${saved}">${saved ? I.saved : I.save}${saved ? 'Saved' : 'Save'}</button>
         <button class="btn ghost small" type="button" data-share>${I.share}Share</button>
         <button class="btn small" type="button" data-addlist>${I.cart}List</button>
-        ${CONFIG.SHOP_API ? `<button class="btn ghost small" type="button" data-shopmeal title="Send these ingredients to Instacart">${I.cart}Get ingredients</button>` : ''}
+        <button class="btn ghost small" type="button" data-shopmeal title="Shop these ingredients at Amazon Fresh, Walmart, Publix, Aldi or Target">${I.cart}Get ingredients</button>
         ${CONFIG.WAYOF_URL ? `<button class="btn ghost small" type="button" data-wayof title="Log this meal's calories and protein in WAYOF">${I.heart}Log in WAYOF</button>` : ''}
       </div>
     </section>
@@ -220,7 +220,7 @@ function planResult(plan) {
       <button class="btn ghost small" type="button" data-saveplan ${isSaved ? 'disabled' : ''}>${isSaved ? I.saved + 'Saved' : I.save + 'Save'}</button>
       <button class="btn ghost small" type="button" data-shareplan>${I.share}Share</button>
       <button class="btn small" type="button" data-planlist>${I.cart}List</button>
-      ${CONFIG.SHOP_API ? `<button class="btn ghost small" type="button" data-shopplan>${I.cart}Instacart</button>` : ''}
+      <button class="btn ghost small" type="button" data-shopplan>${I.cart}Shop</button>
     </div>
     <p class="muted" style="margin:0;font-size:.9rem">${cart.over ? `This plan's groceries run about ${money(cart.total - cart.budget)} over your budget. Swap a meal or try the tips below.` : `Groceries come to about ${money(cart.total)}, buying whole packages and using shared ingredients across meals. That leaves ${money(cart.budget - cart.total)} for real store prices.`}${cart.factor !== 1 ? ` Prices adjusted ${cart.factor > 1 ? '+' : ''}${Math.round((cart.factor - 1) * 100)}% from your receipts.` : ''}</p>
     <div class="days">${plan.days.map((d, di) => `<div class="day"><span class="dname">${d.day}</span><div class="slots">${d.meals.map((s, si) => {
@@ -251,7 +251,7 @@ function listView() {
     <div class="sec-head"><h1 class="display">Grocery list</h1></div>
     <div class="row between"><span class="muted">${done} of ${items.length} in the cart · about ${money(total)}</span></div>
     <div class="progress" aria-hidden="true"><i style="width:${(done / items.length) * 100}%"></i></div>
-    <div class="row" style="flex-wrap:wrap">${CONFIG.SHOP_API ? `<button class="btn small" type="button" data-shoplist>${I.cart}Instacart</button>` : ''}<button class="btn ghost small" type="button" data-receipt>Log receipt</button><button class="btn ghost small" type="button" data-sharelist>${I.share}Share</button>
+    <div class="row" style="flex-wrap:wrap"><button class="btn small" type="button" data-shoplist>${I.cart}Shop</button><button class="btn ghost small" type="button" data-receipt>Log receipt</button><button class="btn ghost small" type="button" data-sharelist>${I.share}Share</button>
       <button class="btn ghost small" type="button" data-clearchecked ${done ? '' : 'disabled'}>Remove done</button>
       <button class="btn ghost small" type="button" data-clearall aria-label="Clear list">${I.trash}</button></div>
   </section>
@@ -354,6 +354,20 @@ async function instacart(payload) {
   const r = await K.openInstacart(CONFIG.SHOP_API, payload);
   if (!r.ok) { try { await navigator.clipboard.writeText(r.text); toast(`${r.error}. The list was copied instead.`); } catch (e) { toast(r.error); } }
 }
+let shopCtx = null;
+function storesSheet(ctx) {
+  shopCtx = ctx;
+  const sh = S.get().shop || {}, r = K.storeLinks(sh.retailer || 'amazon', ctx.items, { amazonTag: CONFIG.AMAZON_TAG || '', storeBrand: !!sh.storeBrand });
+  sheet(`<h2>Shop at…</h2><p class="muted" style="margin-top:0">${esc(ctx.title)} · ${ctx.items.length} item${ctx.items.length === 1 ? '' : 's'}</p>
+    <div class="seg" role="group" style="margin-bottom:10px">${K.STORES.map(s => `<button type="button" aria-pressed="${s.id === r.store.id}" data-store="${s.id}">${esc(s.name)}</button>`).join('')}</div>
+    <label style="display:flex;gap:8px;align-items:center;margin:0 0 8px;font-size:.95rem"><input type="checkbox" data-brand ${sh.storeBrand ? 'checked' : ''}> ${r.store.brand ? `Store brand: search ${esc(r.store.brand)} for packaged goods (about ${Math.round(K.STORE_BRAND_SAVING * 100)}% cheaper)` : 'Store brand (Aldi is mostly its own brand already)'}</label>
+    ${r.store.note ? `<p class="muted" style="font-size:.9rem;margin:0 0 10px">${esc(r.store.note)}</p>` : ''}
+    ${r.cartUrl ? `<button class="btn mustard block" type="button" data-open="${esc(r.cartUrl)}">${I.cart}Add ${r.cartCount} item${r.cartCount === 1 ? '' : 's'} to my Amazon cart</button><p class="muted" style="font-size:.88rem">Then tap Find for the rest. Each opens ${esc(r.store.name)} with the item searched.</p>`
+      : `<p class="muted" style="font-size:.88rem">Tap Find on each item: ${esc(r.store.name)} opens with it searched, ready to add to your cart.</p>`}
+    <div>${r.rows.map(row => `<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--line)"><span style="min-width:0">${esc(row.name)}${row.detail || row.brand ? `<br><small class="muted">${esc([row.brand, row.detail].filter(Boolean).join(' · '))}</small>` : ''}</span>
+      ${row.inCart ? '<span class="muted" style="font-size:.85rem">✓ in cart link</span>' : `<button class="btn ghost small" type="button" data-open="${esc(row.url)}" data-done="1">Find</button>`}</div>`).join('')}</div>
+    ${CONFIG.SHOP_API ? `<button class="btn ghost block" type="button" data-icart style="margin-top:12px">${I.cart}Send it all to Instacart</button>` : ''}`);
+}
 function receiptSheet() {
   const total = Object.values(S.get().list).reduce((a, i) => a + i.cost, 0), store = (S.get().shop || {}).store || '';
   sheet(`<h2>Log your receipt</h2><p class="muted">Type what you actually paid. RepliPlate compares it with its estimate and adjusts prices for that store, so your next plan is closer.</p>
@@ -447,14 +461,20 @@ document.addEventListener('click', async e => {
   if (d.shareplanid) { const p = S.get().plans.find(x => x.id === d.shareplanid); return shareResult(await shareOut({ title: p.name, text: planText(p), url: await planLink(p) })); }
   if (d.delplan) { const p = S.get().plans.find(x => x.id === d.delplan); S.deletePlan(d.delplan); rerender(); return toast('Plan deleted', { label: 'Undo', run: () => { S.savePlan(p); rerender(); } }); }
 
-  // Instacart (shared ShopKit; falls back to copying the list)
-  if ('shopplan' in d && plan) { const c = planShop(plan); return instacart(K.listPayload(`${plan.name} · ~${money(c.total)}`, c.items, { linkback: location.origin + '/#/plan', instructions: `Budget ${money(c.budget)} · estimated ${money(c.total)}` })); }
+  // Shop at… (store search links + one-tap Amazon cart; Instacart only if SHOP_API is set)
+  if ('shopplan' in d && plan) { const c = planShop(plan); return storesSheet({ kind: 'plan', title: `${plan.name} · about ${money(c.total)}`, items: c.items.filter(i => !i.have),
+    instacart: () => K.listPayload(`${plan.name} · ~${money(c.total)}`, c.items, { linkback: location.origin + '/#/plan', instructions: `Budget ${money(c.budget)} · estimated ${money(c.total)}` }) }); }
   if ('shoplist' in d) {
-    const items = Object.values(S.get().list).filter(i => !i.checked).map(i => { const m = K.match(i.name); return { name: i.name, search: m ? m.search : i.name }; });
+    const items = Object.values(S.get().list).filter(i => !i.checked).map(i => { const m = K.match(i.name); return { name: i.name, search: m ? m.search : i.name, key: K.keyOf(i.name), qty: i.qty || '', listKey: i.key || i.name }; });
     if (!items.length) return toast('Everything is checked off');
-    return instacart(K.listPayload('RepliPlate grocery list', items, { linkback: location.origin + '/#/list' }));
+    return storesSheet({ kind: 'list', title: 'Your grocery list', items, instacart: () => K.listPayload('RepliPlate grocery list', items, { linkback: location.origin + '/#/list' }) });
   }
-  if ('shopmeal' in d && meal) { const m = meal; return instacart(K.recipePayload(toShopMeal(m), { servings: S.get().prefs.household || 1, author: m.restaurant ? `${m.restaurant}-style copycat` : 'RepliPlate', linkback: location.origin + '/#/meal/' + m.id })); }
+  if ('shopmeal' in d && meal) { const m = meal, c = K.costList([{ meal: toShopMeal(m), times: S.get().prefs.household || 1 }], { basics: true });
+    return storesSheet({ kind: 'meal', title: `${m.item} for ${S.get().prefs.household || 1}`, items: c.items.filter(i => !i.have),
+      instacart: () => K.recipePayload(toShopMeal(m), { servings: S.get().prefs.household || 1, author: m.restaurant ? `${m.restaurant}-style copycat` : 'RepliPlate', linkback: location.origin + '/#/meal/' + m.id }) }); }
+  if ('store' in d && shopCtx) { S.update(s => { s.shop = { ...(s.shop || {}), retailer: d.store }; }); return storesSheet(shopCtx); }
+  if ('open' in d) { window.open(d.open, '_blank', 'noopener'); if (d.done) e.target.closest('[data-open]').outerHTML = '<span class="muted" style="font-size:.85rem">✓ opened</span>'; return; }
+  if ('icart' in d && shopCtx) return instacart(shopCtx.instacart());
   if ('receipt' in d) return receiptSheet();
   if (d.remind) {
     const on = d.remind === 'on'; S.update(s => { s.shop = { ...(s.shop || {}), remind: on }; });
@@ -470,6 +490,12 @@ document.addEventListener('click', async e => {
 
 document.addEventListener('change', e => {
   if (e.target.matches('[data-item]')) { S.toggleItem(e.target.dataset.item); rerender(); }
+  if (e.target.matches('[data-brand]') && shopCtx) {
+    S.update(s => { s.shop = { ...(s.shop || {}), storeBrand: e.target.checked }; });
+    const plan = view.dataset.route === 'plan' && (S.get().draftPlan);
+    if (shopCtx.kind === 'plan' && plan) { const c = planShop(plan); shopCtx.items = c.items.filter(i => !i.have); shopCtx.title = `${plan.name} · about ${money(c.total)}`; }
+    rerender(); storesSheet(shopCtx);
+  }
   if (e.target.id === 'shopDay') S.update(s => { s.shop = { ...(s.shop || {}), day: +e.target.value }; });
   if (e.target.id === 'photoInput' && e.target.files[0]) { const f = e.target.files[0]; e.target.value = ''; runAIClone(() => cloneFromPhoto(f), 'Reading your photo…'); }
 });
@@ -550,7 +576,7 @@ function upcomingReminders() {
   }
   const left = Object.values(st.list).filter(i => !i.checked).length;
   if (left) { const d = new Date(); while (d.getDay() !== (sh.day ?? 6)) d.setDate(d.getDate() + 1);
-    out.push({ id: `rp-shop-${d.toDateString()}`, at: atH(d, 10), until: atH(d, 20), url: './#/list', title: 'Shopping day', body: `${left} items on your grocery list. Tap to send it to Instacart.` }); }
+    out.push({ id: `rp-shop-${d.toDateString()}`, at: atH(d, 10), until: atH(d, 20), url: './#/list', title: 'Shopping day', body: `${left} items on your grocery list. Tap to shop it.` }); }
   return out.filter(i => i.until > now);
 }
 let remT = 0;

@@ -16,7 +16,8 @@ export function planShop(plan) {
   const prefs = plan.prefs || {}, meals = [];
   plan.days.forEach((d, di) => d.meals.forEach(s => meals.push({ day: d.day, d: di, slot: s.slot, id: s.id })));
   const budget = budgetFor(prefs);
-  return K.recost({ meals, household: prefs.household || 1, budget, target: Math.round(budget * 0.88 * 100) / 100, store: (get().shop || {}).store || '' }, id => toShopMeal(getMeal(id)), { basics: true });
+  const sh = get().shop || {};
+  return K.recost({ meals, household: prefs.household || 1, budget, target: Math.round(budget * 0.88 * 100) / 100, store: sh.store || '' }, id => toShopMeal(getMeal(id)), { basics: true, storeBrand: !!sh.storeBrand });
 }
 
 export const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -63,7 +64,7 @@ export function buildLocalPlan(prefs) {
   // ShopKit plans to the budget (minus a cushion), buying whole packages and reusing ingredients across meals
   const swapOf = new Map(candidates.map(c => [c.m.id, c.d.swap]));
   const sk = K.plan({ budget: budgetFor(prefs), days: prefs.days, slots, household: prefs.household, goal: prefs.goal,
-    pool: candidates.map(c => Object.assign(toShopMeal(c.m), { weight: 0.3 * (c.s - c.m.score / 100) })), basics: true, store: (get().shop || {}).store || '' });
+    pool: candidates.map(c => Object.assign(toShopMeal(c.m), { weight: 0.3 * (c.s - c.m.score / 100) })), basics: true, store: (get().shop || {}).store || '', storeBrand: !!(get().shop || {}).storeBrand });
   const days = [];
   for (let d = 0; d < prefs.days; d++) days.push({ day: DAY_NAMES[d], meals: sk.meals.filter(x => x.d === d && x.id).map(x => ({ slot: x.slot, id: x.id, swap: swapOf.get(x.id) || null })) });
   return {

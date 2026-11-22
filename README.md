@@ -2,19 +2,17 @@
 
 Restaurant favorites made at home: copycat clones, AI meal planning, a combined grocery list, and sharing. It's plain HTML, CSS and JS modules with no build step, so you can deploy it through cPanel File Manager.
 
-## What's new in 2.1: shop to your budget, reminders
+## What's new in 2.1: shop to your budget, store brands, reminders
 - **Budget-true plans.** The on-device planner (shared with WAYOF as `js/shopkit.js`) plans to your grocery budget. Shorter plans get their share of the weekly slider. It counts whole packages and reuses ingredients across meals, and keeps a 12% cushion. Every plan, AI or device-built, shows **Grocery cart (est.) $X of $Y**, plus money-saving swaps.
-- **Instacart:**
-  - **Instacart** on a plan sends the week's groceries.
-  - **Get ingredients** on a clone sends that recipe for your household.
-  - **Instacart** on the grocery list sends what's left to buy.
-  - You choose the store and pay on Instacart. Without a key, the list is copied instead.
+- **Shop at…:** use **Shop** on a plan or the grocery list, or **Get ingredients** on a clone, then pick **Amazon Fresh, Walmart, Publix, Aldi or Target**.
+  - Each item opens that store's search already filled in.
+  - On Amazon, common staples go into the cart in one tap (`ASINS` in `js/shopkit.js`).
+  - No account or approval is needed.
+- **Store brands:** one checkbox switches packaged goods to Great Value, Publix, Good & Gather or 365 searches and lowers the estimate about 12%.
 - **Log receipt** (grocery list) teaches the price estimates for each store.
+- **Amazon commission (optional):** set `AMAZON_TAG` in `js/config.js` to your Amazon Associates tag.
+- **Instacart (future option):** Instacart isn't accepting new developers right now. `worker/shop.js` (`/api/shop`) stays ready. If they approve you, add the `INSTACART_API_KEY` secret (and `INSTACART_ENV`) to this Worker and set `SHOP_API: '/api/shop'` in `js/config.js`.
 - **Reminders** (Saved → Settings): tonight's dinner at 4 PM, a Sunday meal-prep afternoon and shopping day. They arrive while the app is closed when it's installed on Chrome or Edge, even offline (`js/localnotify.js` + the service worker).
-- **Setup:** in Cloudflare → Workers → **repliplate-app** → Settings → Variables and Secrets:
-  - Add the secret `INSTACART_API_KEY`. Get it from Instacart's Developer Platform: https://www.instacart.com/company/business/developers
-  - Add the variable `INSTACART_ENV`: `development` for a development key, `production` once Instacart approves the app.
-  - The endpoint is `/api/shop` (code in `worker/shop.js`), and WAYOF uses it too.
 
 ## What's new in 2.0
 - **New design.** A diner palette (basil, mustard, ketchup) built around a kitchen-ticket motif that shows restaurant price vs. your price. Light and dark mode, and a side rail on desktop.
@@ -42,7 +40,7 @@ Restaurant favorites made at home: copycat clones, AI meal planning, a combined 
 | `js/planner.js` | Offline planner and plan totals |
 | `js/shopkit.js` | Budget grocery planner + Instacart helpers (shared with WAYOF) |
 | `js/localnotify.js` | Reminders while the app is closed (shared with WAYOF) |
-| `worker/shop.js` | Instacart endpoint `/api/shop` (Cloudflare Worker) |
+| `worker/shop.js` | Instacart endpoint `/api/shop` (future option; off until `SHOP_API` is set) |
 | `js/ai.js` | AI client, with response checks and offline fallback |
 | `js/share.js` | Share links, share sheet, and ticket images |
 | `js/install.js` | One-tap install and the iOS guide |
