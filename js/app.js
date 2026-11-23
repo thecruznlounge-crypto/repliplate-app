@@ -356,17 +356,41 @@ async function instacart(payload) {
 }
 let shopCtx = null;
 function storesSheet(ctx) {
-  shopCtx = ctx;
-  const sh = S.get().shop || {}, r = K.storeLinks(sh.retailer || 'amazon', ctx.items, { amazonTag: CONFIG.AMAZON_TAG || '', storeBrand: !!sh.storeBrand });
+  shopCtx = ctx; ctx.checked = ctx.checked || {};
+  const sh = S.get().shop || {}, st = K.storeById(sh.retailer || 'amazon');
+  const r = K.storeLinks(st.id, ctx.items, { amazonTag: CONFIG.AMAZON_TAG || '', storeBrand: !!sh.storeBrand, title: ctx.title });
+  const line = 'display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--line)';
+  const label = rw => `<span style="min-width:0">${esc(rw.name)}${rw.detail || rw.brand ? `<br><small class="muted">${esc([rw.brand, rw.detail].filter(Boolean).join(' · '))}</small>` : ''}</span>`;
+  const find = rw => `<button class="btn ghost small" type="button" data-open="${esc(rw.url)}" data-done="1">Find</button>`;
+  const ticked = (rw, i) => ctx.kind === 'list' ? !!(S.get().list[ctx.items[i].listKey] || {}).checked : !!ctx.checked[rw.key];
+  let body = '';
+  if (st.mode === 'cart') {
+    const rest = r.rows.filter(x => !x.inCart);
+    body = `${r.cartUrl ? `<button class="btn mustard block" type="button" data-open="${esc(r.cartUrl)}">${I.cart}Add ${r.cartCount === r.total ? 'all ' : ''}${r.cartCount} item${r.cartCount === 1 ? '' : 's'} to my Amazon cart</button>` : ''}
+      <p class="muted" style="font-size:.88rem">${rest.length ? `${rest.length} item${rest.length === 1 ? " isn't" : "s aren't"} matched to an Amazon product yet. Tap Find for ${rest.length === 1 ? 'it' : 'those'}.` : 'Everything is in the cart link. Check quantities in your cart, then check out.'}</p>
+      ${rest.map(x => `<div style="${line}">${label(x)}${find(x)}</div>`).join('')}
+      ${r.cartCount ? `<details style="margin-top:8px"><summary class="muted" style="font-size:.88rem">In the cart link (${r.cartCount})</summary>${r.rows.filter(x => x.inCart).map(x => `<div style="${line}">${label(x)}<span class="muted">✓</span></div>`).join('')}</details>` : ''}`;
+  } else if (st.mode === 'sparky') {
+    body = `<button class="btn mustard block" type="button" data-sparky>${I.share}Send my list to Walmart (Sparky)</button>
+      <ol class="muted" style="font-size:.88rem;padding-left:20px;line-height:1.5"><li>Save the list to <b>Notes</b> (or copy it).</li><li>Open the <b>Walmart app</b>, tap <b>Sparky</b>, and share the note or paste it: "Add these to my cart".</li><li>Sparky matches each item, checks your store's stock and builds the cart.</li></ol>
+      <details><summary class="muted" style="font-size:.88rem">Or find items one at a time (${r.rows.length})</summary>${r.rows.map(x => `<div style="${line}">${label(x)}${find(x)}</div>`).join('')}</details>`;
+  } else {
+    const done = r.rows.filter(ticked).length;
+    body = `<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:6px"><span class="muted" style="font-size:.9rem">${done} of ${r.rows.length} in the cart</span><button class="btn ghost small" type="button" data-open="${esc(st.home)}">Open ${esc(st.name)}</button></div>
+      ${r.rows.map((x, i) => { const c = ticked(x, i); return `<button type="button" data-tick="${i}" style="${line};width:100%;background:none;border-left:0;border-right:0;border-bottom:0;text-align:left;color:inherit;font:inherit;${c ? 'opacity:.5' : ''}"><span style="${c ? 'text-decoration:line-through' : ''}">${label(x)}</span><span aria-hidden="true" style="font-size:1.2rem">${c ? '☑' : '☐'}</span></button>`; }).join('')}`;
+  }
   sheet(`<h2>Shop at…</h2><p class="muted" style="margin-top:0">${esc(ctx.title)} · ${ctx.items.length} item${ctx.items.length === 1 ? '' : 's'}</p>
-    <div class="seg" role="group" style="margin-bottom:10px">${K.STORES.map(s => `<button type="button" aria-pressed="${s.id === r.store.id}" data-store="${s.id}">${esc(s.name)}</button>`).join('')}</div>
-    <label style="display:flex;gap:8px;align-items:center;margin:0 0 8px;font-size:.95rem"><input type="checkbox" data-brand ${sh.storeBrand ? 'checked' : ''}> ${r.store.brand ? `Store brand: search ${esc(r.store.brand)} for packaged goods (about ${Math.round(K.STORE_BRAND_SAVING * 100)}% cheaper)` : 'Store brand (Aldi is mostly its own brand already)'}</label>
-    ${r.store.note ? `<p class="muted" style="font-size:.9rem;margin:0 0 10px">${esc(r.store.note)}</p>` : ''}
-    ${r.cartUrl ? `<button class="btn mustard block" type="button" data-open="${esc(r.cartUrl)}">${I.cart}Add ${r.cartCount} item${r.cartCount === 1 ? '' : 's'} to my Amazon cart</button><p class="muted" style="font-size:.88rem">Then tap Find for the rest. Each opens ${esc(r.store.name)} with the item searched.</p>`
-      : `<p class="muted" style="font-size:.88rem">Tap Find on each item: ${esc(r.store.name)} opens with it searched, ready to add to your cart.</p>`}
-    <div>${r.rows.map(row => `<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--line)"><span style="min-width:0">${esc(row.name)}${row.detail || row.brand ? `<br><small class="muted">${esc([row.brand, row.detail].filter(Boolean).join(' · '))}</small>` : ''}</span>
-      ${row.inCart ? '<span class="muted" style="font-size:.85rem">✓ in cart link</span>' : `<button class="btn ghost small" type="button" data-open="${esc(row.url)}" data-done="1">Find</button>`}</div>`).join('')}</div>
+    <div class="seg" role="group" style="margin-bottom:10px">${K.STORES.map(x => `<button type="button" aria-pressed="${x.id === st.id}" data-store="${x.id}">${esc(x.name)}</button>`).join('')}</div>
+    <label style="display:flex;gap:8px;align-items:center;margin:0 0 8px;font-size:.95rem"><input type="checkbox" data-brand ${sh.storeBrand ? 'checked' : ''}> ${st.brand ? `Store brand: ${esc(st.brand)} for packaged goods (about ${Math.round(K.STORE_BRAND_SAVING * 100)}% cheaper)` : 'Store brand (Aldi is mostly its own brand already)'}</label>
+    ${st.note ? `<p class="muted" style="font-size:.9rem;margin:0 0 10px">${esc(st.note)}</p>` : ''}
+    ${body}
     ${CONFIG.SHOP_API ? `<button class="btn ghost block" type="button" data-icart style="margin-top:12px">${I.cart}Send it all to Instacart</button>` : ''}`);
+}
+async function sendSparky() {
+  const sh = S.get().shop || {}, items = shopCtx.items.filter((x, i) => shopCtx.kind === 'list' ? !(S.get().list[x.listKey] || {}).checked : !shopCtx.checked[x.key || K.keyOf(x.name)]);
+  const text = K.shareText('Grocery list', items, K.storeById('walmart'), !!sh.storeBrand);
+  if (navigator.share) { try { await navigator.share({ title: 'Grocery list', text }); return; } catch (e) { if (e && e.name === 'AbortError') return; } }
+  try { await navigator.clipboard.writeText(text); toast('List copied. Open the Walmart app, tap Sparky and paste it.'); } catch (e) { toast('Could not copy the list'); }
 }
 function receiptSheet() {
   const total = Object.values(S.get().list).reduce((a, i) => a + i.cost, 0), store = (S.get().shop || {}).store || '';
@@ -465,7 +489,7 @@ document.addEventListener('click', async e => {
   if ('shopplan' in d && plan) { const c = planShop(plan); return storesSheet({ kind: 'plan', title: `${plan.name} · about ${money(c.total)}`, items: c.items.filter(i => !i.have),
     instacart: () => K.listPayload(`${plan.name} · ~${money(c.total)}`, c.items, { linkback: location.origin + '/#/plan', instructions: `Budget ${money(c.budget)} · estimated ${money(c.total)}` }) }); }
   if ('shoplist' in d) {
-    const items = Object.values(S.get().list).filter(i => !i.checked).map(i => { const m = K.match(i.name); return { name: i.name, search: m ? m.search : i.name, key: K.keyOf(i.name), qty: i.qty || '', listKey: i.key || i.name }; });
+    const items = Object.entries(S.get().list).filter(([, i]) => !i.checked || K.storeById((S.get().shop || {}).retailer || 'amazon').mode === 'checklist').map(([lk, i]) => { const m = K.match(i.name); return { name: i.name, search: m ? m.search : i.name, key: K.keyOf(i.name), aisle: i.aisle, qty: i.qty || '', listKey: lk }; });
     if (!items.length) return toast('Everything is checked off');
     return storesSheet({ kind: 'list', title: 'Your grocery list', items, instacart: () => K.listPayload('RepliPlate grocery list', items, { linkback: location.origin + '/#/list' }) });
   }
@@ -475,6 +499,8 @@ document.addEventListener('click', async e => {
   if ('store' in d && shopCtx) { S.update(s => { s.shop = { ...(s.shop || {}), retailer: d.store }; }); return storesSheet(shopCtx); }
   if ('open' in d) { window.open(d.open, '_blank', 'noopener'); if (d.done) e.target.closest('[data-open]').outerHTML = '<span class="muted" style="font-size:.85rem">✓ opened</span>'; return; }
   if ('icart' in d && shopCtx) return instacart(shopCtx.instacart());
+  if ('sparky' in d && shopCtx) return sendSparky();
+  if ('tick' in d && shopCtx) { const it = shopCtx.items[+d.tick]; if (!it) return; if (shopCtx.kind === 'list') { S.toggleItem(it.listKey); rerender(); } else { const k = it.key || K.keyOf(it.name); shopCtx.checked[k] = !shopCtx.checked[k]; } return storesSheet(shopCtx); }
   if ('receipt' in d) return receiptSheet();
   if (d.remind) {
     const on = d.remind === 'on'; S.update(s => { s.shop = { ...(s.shop || {}), remind: on }; });

@@ -4,10 +4,10 @@ Restaurant favorites made at home: copycat clones, AI meal planning, a combined 
 
 ## What's new in 2.1: shop to your budget, store brands, reminders
 - **Budget-true plans.** The on-device planner (shared with WAYOF as `js/shopkit.js`) plans to your grocery budget. Shorter plans get their share of the weekly slider. It counts whole packages and reuses ingredients across meals, and keeps a 12% cushion. Every plan, AI or device-built, shows **Grocery cart (est.) $X of $Y**, plus money-saving swaps.
-- **Shop at…:** use **Shop** on a plan or the grocery list, or **Get ingredients** on a clone, then pick **Amazon Fresh, Walmart, Publix, Aldi or Target**.
-  - Each item opens that store's search already filled in.
-  - On Amazon, common staples go into the cart in one tap (`ASINS` in `js/shopkit.js`).
-  - No account or approval is needed.
+- **Shop at…:** use **Shop** on a plan or the grocery list, or **Get ingredients** on a clone, then pick a store.
+  - **Amazon Fresh:** the whole list goes into your Amazon cart in one tap. About 97 of 110 grocery items are matched (`ASINS` in `js/shopkit.js`).
+  - **Walmart:** **Send my list to Walmart (Sparky)** shares the list. Paste it into Sparky in the Walmart app, or save it to Notes first, and Sparky builds the cart.
+  - **Publix, Aldi, Target:** a checklist to tick off as you shop. Ticks on the grocery list stay in sync.
 - **Store brands:** one checkbox switches packaged goods to Great Value, Publix, Good & Gather or 365 searches and lowers the estimate about 12%.
 - **Log receipt** (grocery list) teaches the price estimates for each store.
 - **Amazon commission (optional):** set `AMAZON_TAG` in `js/config.js` to your Amazon Associates tag.
