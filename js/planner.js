@@ -23,7 +23,7 @@ export function planShop(plan) {
 export const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 export function pool() {
-  return [...MEALS, ...Object.values(get().custom)].filter(m => m.category !== 'Drinks');
+  return [...MEALS, ...Object.values(get().custom)].filter(m => !['Drinks', 'Desserts', 'Sides', 'Breakfast'].includes(m.category));
 }
 
 function fitsDiet(meal, diet) {

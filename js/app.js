@@ -9,7 +9,7 @@ import { mealLink, planLink, shareOut, planText, listText, ticketCard, decode, w
 import { install, installState, onInstallChange, shouldNudge, snooze, isIOS } from './install.js';
 import { CONFIG } from './config.js';
 
-const VERSION = '2.1.0';
+const VERSION = '2.2.0';
 const $ = (s, el = document) => el.querySelector(s);
 const view = $('#view');
 const money = n => '$' + (Math.round(n * 100) / 100).toFixed(2);

@@ -2,6 +2,8 @@
 // Prices are typical US menu prices (2026) vs. estimated grocery cost per serving.
 // aisle: produce | protein | dairy | pantry | bakery | frozen
 
+import { MORE_MEALS } from './data-more.js';
+
 export const AISLES = {
   produce: 'Produce',
   protein: 'Meat & protein',
@@ -11,7 +13,7 @@ export const AISLES = {
   frozen: 'Frozen',
 };
 
-export const CATEGORIES = ['Bowls', 'Burgers', 'Chicken', 'Pasta', 'Asian', 'Mexican', 'Soups', 'Drinks'];
+export const CATEGORIES = ['Bowls', 'Burgers', 'Chicken', 'Pasta', 'Asian', 'Mexican', 'Soups', 'Seafood', 'Steak', 'Pizza', 'Sandwiches', 'Breakfast', 'Desserts', 'Sides', 'Drinks'];
 
 const i = (name, qty, cost, aisle) => ({ name, qty, cost, aisle });
 
@@ -277,6 +279,7 @@ export const MEALS = [
       ['High protein', 'Blend in a scoop of vanilla protein powder.'],
     ],
   },
+  ...MORE_MEALS,
 ];
 
 export const byId = id => MEALS.find(m => m.id === id);

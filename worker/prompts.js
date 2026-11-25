@@ -3,7 +3,7 @@ export const MEAL_SCHEMA = `{
   "restaurant": "Brand name only, e.g. \\"Chipotle\\"",
   "item": "Dish name in sentence case",
   "emoji": "one food emoji",
-  "category": "one of Bowls|Burgers|Chicken|Pasta|Asian|Mexican|Soups|Drinks",
+  "category": "one of Bowls|Burgers|Chicken|Pasta|Asian|Mexican|Soups|Seafood|Steak|Pizza|Sandwiches|Breakfast|Desserts|Sides|Drinks",
   "restaurantPrice": 13.95,            // typical current US menu price, USD
   "homePrice": 4.80,                   // sum of ingredient costs for ONE serving, USD
   "restaurantCal": 980, "homeCal": 690, "protein": 45, "minutes": 30,

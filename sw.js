@@ -1,13 +1,13 @@
 // RepliPlate service worker — offline-first app shell + closed-app reminders (LocalNotify).
 importScripts('./js/localnotify.js');
-const VERSION = 'rp-2.1.0';
+const VERSION = 'rp-2.2.0';
 const SHELL = `${VERSION}-shell`;
 const RUNTIME = `${VERSION}-runtime`;
 const FONTS = 'rp-fonts'; // kept across versions
 
 const PRECACHE = [
   './', './index.html', './offline.html', './privacy.html', './styles.css', './manifest.webmanifest',
-  './js/app.js', './js/data.js', './js/store.js', './js/planner.js', './js/shopkit.js', './js/localnotify.js', './js/ai.js', './js/share.js', './js/install.js', './js/config.js',
+  './js/app.js', './js/data.js', './js/data-more.js', './js/store.js', './js/planner.js', './js/shopkit.js', './js/localnotify.js', './js/ai.js', './js/share.js', './js/install.js', './js/config.js',
   './assets/logo.svg', './assets/icons/icon-48.png', './assets/icons/icon-96.png', './assets/icons/icon-192.png',
   './assets/icons/icon-512.png', './assets/icons/maskable-192.png', './assets/icons/maskable-512.png', './assets/icons/apple-touch-icon.png',
 ];
